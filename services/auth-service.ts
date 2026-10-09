@@ -194,6 +194,14 @@ export const authService = {
     )
   },
 
+  async loginStudentByPin(pin: string): Promise<AuthSession> {
+    const data = await apiClient<{ token: string; student: any; school: any }>('/auth/student/pin-login', { method: 'POST', body: JSON.stringify({ pin }) })
+    const session = buildStudentSession(data)
+    setStoredToken(data.token, true)
+    setStoredUser(session)
+    return session
+  },
+
   async loginStudent(
     schoolCode: string,
     studentId: string,
@@ -213,7 +221,7 @@ export const authService = {
     })
 
     const session = buildStudentSession(data)
-    setStoredToken(data.token)
+    setStoredToken(data.token, true)
     setStoredUser(session)
     return session
   },

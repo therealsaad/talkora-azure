@@ -164,10 +164,10 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
   }
 
   async function handleResetCode(id: string, name: string) {
-    if (!confirm(`Reset secret student code for ${name}?`)) return
+    if (!confirm(`Issue a new 5-digit PIN for ${name}?`)) return
     try {
       const res = await schoolService.resetCode(id)
-      alert(`New secret student code for ${name}: ${res.studentCode}`)
+      setCreatedCredential({ name, code: res.studentCode })
       fetchStudents()
     } catch (err: any) {
       alert(err.message || 'Failed to reset code.')
@@ -208,7 +208,7 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
             }}
           />
           <select
-            value={gradeFilter || ''}
+            value={gradeFilter ?? ''}
             onChange={(e) => setGradeFilter(e.target.value ? Number(e.target.value) : undefined)}
             style={{
               padding: '10px 14px',
@@ -220,9 +220,9 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
             }}
           >
             <option value="">All Grades</option>
-            {[4, 5, 6, 7, 8, 9, 10].map((g) => (
+            {Array.from({ length: 11 }, (_, i) => i).map((g) => (
               <option key={g} value={g}>
-                Class {g}
+                {g === 0 ? 'Kindergarten (KG)' : `Class ${g}`}
               </option>
             ))}
           </select>
@@ -322,7 +322,7 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
                       </td>
 
                       <td style={{ padding: '14px 20px', fontWeight: 700, color: '#334155' }}>
-                        Class {student.grade} {student.className ? `(${student.className})` : ''}
+                        {student.grade === 0 ? 'KG' : `Class ${student.grade}`} {student.className ? `(${student.className})` : ''}
                       </td>
 
                       <td style={{ padding: '14px 20px' }}>
@@ -397,7 +397,7 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
                           <button
                             type="button"
                             onClick={() => handleResetCode(student.id, student.fullName)}
-                            title="Reset 4-letter Student Code"
+                            title="Issue a new 5-digit student PIN"
                             style={{
                               background: '#fef3c7',
                               border: 'none',
@@ -409,7 +409,7 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
                               cursor: 'pointer',
                             }}
                           >
-                            Reset Code
+                            Reset PIN
                           </button>
                         </div>
                       </td>
@@ -485,15 +485,15 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#334155' }}>
-                  Grade (4–10)
+                  Grade (KG–10)
                   <select
                     value={grade}
-                    onChange={(e) => setGrade(Number(e.target.value))}
+                    onChange={(e) => { const nextGrade = Number(e.target.value); setGrade(nextGrade); setClassName(nextGrade === 0 ? 'KG-A' : `${nextGrade}A`) }}
                     style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   >
-                    {[4, 5, 6, 7, 8, 9, 10].map((g) => (
+                    {Array.from({ length: 11 }, (_, i) => i).map((g) => (
                       <option key={g} value={g}>
-                        Class {g}
+                        {g === 0 ? 'Kindergarten (KG)' : `Class ${g}`}
                       </option>
                     ))}
                   </select>
@@ -593,15 +593,15 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#334155' }}>
-                  Grade (4–10)
+                  Grade (KG–10)
                   <select
                     value={editGrade}
                     onChange={(e) => setEditGrade(Number(e.target.value))}
                     style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   >
-                    {[4, 5, 6, 7, 8, 9, 10].map((g) => (
+                    {Array.from({ length: 11 }, (_, i) => i).map((g) => (
                       <option key={g} value={g}>
-                        Class {g}
+                        {g === 0 ? 'Kindergarten (KG)' : `Class ${g}`}
                       </option>
                     ))}
                   </select>
@@ -649,10 +649,10 @@ export function StudentManagementPage({ initialAddOpen = false, initialEditStude
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.62)', display: 'grid', placeItems: 'center', zIndex: 120, padding: 20 }}>
           <div role="dialog" aria-modal="true" style={{ background: '#fff', borderRadius: 20, padding: 28, maxWidth: 430, width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,.28)' }}>
             <h3 style={{ margin: '0 0 8px', color: '#0f172a' }}>Student enrolled</h3>
-            <p style={{ color: '#64748b' }}>Share this one-time sign-in code securely with {createdCredential.name}. It will not be shown in the directory.</p>
+            <p style={{ color: '#64748b' }}>Share this 5-digit student PIN securely with {createdCredential.name}. It will not be shown in the directory.</p>
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: 16, textAlign: 'center', fontSize: 24, fontWeight: 900, letterSpacing: 3, color: '#1d4ed8' }}>{createdCredential.code}</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button type="button" onClick={() => navigator.clipboard.writeText(createdCredential.code)} style={{ padding: '10px 16px', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', fontWeight: 800 }}>Copy code</button>
+              <button type="button" onClick={() => navigator.clipboard.writeText(createdCredential.code)} style={{ padding: '10px 16px', border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', fontWeight: 800 }}>Copy PIN</button>
               <button type="button" onClick={() => setCreatedCredential(null)} style={{ padding: '10px 16px', border: 0, borderRadius: 9, background: '#0f172a', color: '#fff', fontWeight: 800 }}>Done</button>
             </div>
           </div>

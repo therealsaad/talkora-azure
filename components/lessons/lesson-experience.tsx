@@ -88,8 +88,11 @@ export function LessonExperience({ activities, levelTitle = 'Favourite Fair', sy
   const currentTeacherTurnRef = useRef<TeacherTurn | null>(null)
 
   const world = resolveWorldForLevel(levelNumber, levelTitle)
-  const warmupPrompts = useMemo(() => getWarmupPrompts(activity), [activity])
-  const isWarmup = isWarmupActivity(activity)
+  const warmupPrompts = useMemo(
+    () => getWarmupPrompts(activity, levelNumber === 1),
+    [activity, levelNumber],
+  )
+  const isWarmup = isWarmupActivity(activity, levelNumber === 1)
   const firstRepeatLine = activity?.type === 'REPEAT_SENTENCE' && Array.isArray(activity.content?.dialogueTurns)
     ? (activity.content.dialogueTurns[0] as { text?: string } | undefined)?.text
     : undefined
@@ -611,6 +614,8 @@ export function LessonExperience({ activities, levelTitle = 'Favourite Fair', sy
         id: `teacher-${activity?.id || index}-complete`,
         text: syllabusName.toLowerCase().includes('favourite')
           ? `You did it, ${studentName}! You shared your favourites, asked questions, gave reasons, and spoke politely.`
+          : syllabusName.toLowerCase().includes('partner')
+            ? `You did it, ${studentName}! You interviewed a partner, checked their information, and presented them clearly.`
           : `You did it, ${studentName}! You finished ${syllabusName} and used clear English in real speaking turns.`,
         emotion: 'celebrating',
         intent: 'celebrate',
@@ -650,6 +655,7 @@ export function LessonExperience({ activities, levelTitle = 'Favourite Fair', sy
           <main className="talkora-lesson__immersive-stage">
             <ImmersiveLessonStage
               activity={activity}
+              unitNumber={levelNumber}
               canonicalPrompt={initialLine}
               index={index}
               totalActivities={activities.length}
@@ -735,13 +741,13 @@ function uniqueEvidence(items: Evidence[]) {
 function RewardScene({ studentName, syllabusName, xp, evidence, onReplay }: { studentName: string; syllabusName: string; xp: number; evidence: Evidence[]; onReplay: () => void }) {
   return <main className="talkora-reward">
     <div className="talkora-reward__sky" aria-hidden="true">{Array.from({ length: 14 }, (_, index) => <motion.i key={index} animate={{ y: [0, -22, 0], rotate: [0, 35, 0], opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.6 + index * 0.08, repeat: Infinity, delay: index * 0.06 }} />)}</div>
-    <motion.div className="talkora-reward__badge" initial={{ scale: 0, rotate: -18 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 160, damping: 12 }}><Award /><span>{syllabusName.toLowerCase().includes('favourite') ? 'Favourite Finder' : 'Lesson Star'}</span></motion.div>
+    <motion.div className="talkora-reward__badge" initial={{ scale: 0, rotate: -18 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 160, damping: 12 }}><Award /><span>{syllabusName.toLowerCase().includes('partner') ? 'Partner Presenter' : syllabusName.toLowerCase().includes('favourite') ? 'Favourite Finder' : 'Lesson Star'}</span></motion.div>
     <span className="talkora-reward__eyebrow"><Trophy /> ADVENTURE COMPLETE</span>
     <h1>You found your speaking power, {studentName}!</h1>
     <p>Miss Julie heard what you can really do in English.</p>
-    <div className="talkora-reward__evidence">{evidence.length ? evidence.map((item) => <span key={item.skill}><BookOpen /> {friendlySkill(item.skill)}</span>) : <><span><BookOpen /> Shared a favourite</span><span><BookOpen /> Spoke in complete sentences</span></>}</div>
+    <div className="talkora-reward__evidence">{evidence.length ? evidence.map((item) => <span key={item.skill}><BookOpen /> {friendlySkill(item.skill)}</span>) : syllabusName.toLowerCase().includes('partner') ? <><span><BookOpen /> Checked partner information</span><span><BookOpen /> Presented in full sentences</span></> : <><span><BookOpen /> Shared a favourite</span><span><BookOpen /> Spoke in complete sentences</span></>}</div>
     <motion.div className="talkora-reward__xp" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45 }}><Sparkles /><strong>+{xp} XP</strong></motion.div>
-    <p className="talkora-reward__home">At home, ask a family member about their favourites. Record your conversation and notice how your English has grown.</p>
+    <p className="talkora-reward__home">{syllabusName.toLowerCase().includes('partner') ? 'Keep practising how to introduce someone clearly, using checked details and full sentences.' : 'At home, ask a family member about their favourites. Record your conversation and notice how your English has grown.'}</p>
     <div className="talkora-reward__actions">
       <button type="button" className="talkora-reward__continue talkora-reward__continue--secondary" onClick={onReplay}>Replay lesson</button>
       <Link href="/student/practice/talk" className="talkora-reward__continue talkora-reward__continue--secondary">Practice with Miss Julie</Link>

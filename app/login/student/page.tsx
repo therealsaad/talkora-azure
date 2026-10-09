@@ -1,111 +1,123 @@
 'use client'
 
+import { useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, School, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { authService, type StudentProfileOption, type StudentRosterResponse } from '@/services/auth-service'
+import { ArrowLeft, ArrowRight, BookOpenCheck, Delete, GraduationCap, LockKeyhole, School, Sparkles } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
-import { MissJulie } from '@/components/student/miss-julie/miss-julie'
-import { ClassFilter, GradeFilter, RosterSearch, StudentRosterGrid } from '@/components/student/login/student-roster'
-import { StudentPinInput } from '@/components/student/login/student-pin-input'
-import { accountAvatar, talkoraAssets } from '@/config/talkora-assets'
 import { TalkoraLogo } from '@/components/brand/talkora-logo'
-import { useMissJulieVoice } from '@/hooks/use-miss-julie-voice'
+import './student-login.css'
 
+/** School lab-friendly: no student roster, school code, or persistent student session. */
 export default function StudentLoginPage() {
-  const router = useRouter(); const reduced = useReducedMotion()
-  const { loginStudent } = useAuth()
-  const julieVoice = useMissJulieVoice()
-  const [step, setStep] = useState<1 | 2 | 3>(1); const [schoolCode, setSchoolCode] = useState(''); const [schoolName, setSchoolName] = useState(''); const [students, setStudents] = useState<StudentProfileOption[]>([])
-  const [selected, setSelected] = useState<StudentProfileOption | null>(null); const [studentCode, setStudentCode] = useState(''); const [grade, setGrade] = useState<number>(); const [classFilter, setClassFilter] = useState(''); const [search, setSearch] = useState('')
-  const [facets, setFacets] = useState<StudentRosterResponse['filters']>({ grades: [], classes: [] }); const [pagination, setPagination] = useState({ page: 1, limit: 24, total: 0, pages: 0 }); const [rosterLoading, setRosterLoading] = useState(false)
-  const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const [success, setSuccess] = useState(false)
+  const router = useRouter()
+  const { loginStudentByPin } = useAuth()
+  const [pin, setPin] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const complete = /^\d{5}$/.test(pin)
 
-  const classes = useMemo(() => facets.classes.filter((item) => !grade || item.grade === grade).map((item) => item.className), [facets.classes, grade])
-
-  useEffect(() => {
-    if (step !== 2 || !schoolCode || !grade) return
-    const controller = new AbortController()
-    const timer = window.setTimeout(async () => {
-      setRosterLoading(true); setError('')
-      try {
-        const data = await authService.lookupStudents(schoolCode, { grade, className: classFilter || undefined, q: search.trim() || undefined, page: pagination.page, limit: 24 })
-        if (!controller.signal.aborted) { setStudents(data.students); setPagination(data.pagination); setFacets(data.filters) }
-      } catch (caught) { if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Talkora couldn't connect. Try again.") }
-      finally { if (!controller.signal.aborted) setRosterLoading(false) }
-    }, search ? 350 : 80)
-    return () => { controller.abort(); window.clearTimeout(timer) }
-  }, [step, schoolCode, grade, classFilter, search, pagination.page])
-
-  async function enterSchool(event: FormEvent) {
-    event.preventDefault(); setLoading(true); setError('')
-    try {
-      const code = schoolCode.trim().toUpperCase(); const data = await authService.lookupStudents(code, { page: 1, limit: 24 }); setSchoolCode(code); setSchoolName(data.school.name); setFacets(data.filters); setPagination(data.pagination); setStudents(data.students); setGrade(data.filters.grades[0])
-      setStep(2)
-    } catch { setError("We couldn't find that school code. Check it with your teacher.") } finally { setLoading(false) }
+  function addNumber(value: string) {
+    if (busy) return
+    setError('')
+    setPin(current => (current + value).slice(0, 5))
+    inputRef.current?.focus()
   }
-  function chooseStudent(student: StudentProfileOption) { setSelected(student); setStudentCode(''); setError(''); window.setTimeout(() => setStep(3), reduced ? 0 : 480) }
-  async function signIn(event: FormEvent) {
-    event.preventDefault(); if (!selected) return; setLoading(true); setError('')
+
+  function removeNumber() {
+    if (busy) return
+    setError('')
+    setPin(current => current.slice(0, -1))
+    inputRef.current?.focus()
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (busy || !complete) return
+    setBusy(true)
+    setError('')
     try {
-      await loginStudent(schoolCode, selected.id, studentCode)
-      setSuccess(true)
-      const requestedPath = new URLSearchParams(window.location.search).get('next')
-      const destination = requestedPath?.startsWith('/student/') && !requestedPath.startsWith('//')
-        ? requestedPath
-        : '/student/home'
-      window.setTimeout(() => router.replace(destination), reduced ? 0 : 520)
+      await loginStudentByPin(pin)
+      setPin('')
+      router.replace('/student/home')
+    } catch {
+      setError('That PIN did not work. Please ask your teacher for help.')
+      setPin('')
+      inputRef.current?.focus()
+    } finally {
+      setBusy(false)
     }
-    catch (caught) { setError(caught instanceof Error ? caught.message : 'That code was not correct. Try again or ask your teacher.'); setStudentCode('') }
-    finally { setLoading(false) }
   }
 
-  const julieState = success ? 'celebrate' : error ? 'encouraging' : step === 1 ? 'welcome' : step === 2 ? 'pointing' : 'encouraging'
-  const julieMessage = success ? `You're in, ${selected?.fullName.split(' ')[0]}!` : error ? 'That is okay. Take a breath and try once more.' : step === 1 ? 'Let us find your Talkora school.' : step === 2 ? 'Hi! Find your name, then tap your photo.' : `Your secret code keeps your journey safe, ${selected?.fullName.split(' ')[0]}.`
-  const pageSpeechKey = `page:student-login:${step}:${selected?.id || 'school'}:${error ? 'error' : success ? 'success' : 'ready'}`
+  return (
+    <main className="lab-login">
+      <header className="lab-login__header">
+        <Link href="/" aria-label="Talkora home" className="lab-login__brand"><TalkoraLogo priority /></Link>
+        <nav className="lab-login__staff" aria-label="Staff sign-in">
+          <Link href="/login/teacher"><GraduationCap size={17} /> Teacher Login</Link>
+          <Link href="/login/school"><School size={17} /> School Login</Link>
+        </nav>
+      </header>
 
-  useEffect(() => {
-    if (!julieMessage.trim()) return
-    const timer = window.setTimeout(() => {
-      void julieVoice.speak(julieMessage, pageSpeechKey, 'PAGE_GUIDANCE')
-    }, reduced ? 0 : 320)
-    return () => window.clearTimeout(timer)
-  }, [julieMessage, julieVoice.speak, pageSpeechKey, reduced])
+      <div className="lab-login__main">
+        <section className="lab-login__story" aria-label="Welcome to Talkora">
+          <div className="lab-login__picture" role="img" aria-label="Miss Julie teaching English to happy students in a colorful classroom" />
+          <div className="lab-login__story-footer">
+            <div className="lab-login__story-label"><Sparkles size={16} /> YOUR ENGLISH ADVENTURE</div>
+            <h1>Big dreams start<br />with <span>little words.</span></h1>
+            <p>Learn, speak, and shine with Miss Julie!</p>
+          </div>
+        </section>
 
-  return <main className={`student-login-v2 login-step-${step}`} style={{ '--student-scene': `url(${talkoraAssets.environments.landing})` } as React.CSSProperties}>
-    <Link data-login-enter href="/" className="student-brand login-brand"><TalkoraLogo className="talkora-logo--login" priority /></Link>
-    <section className="student-login-scene" data-login-enter><MissJulie state={julieState} size="large" message={julieMessage} speaking={julieVoice.isSpeaking} onSpeak={() => void julieVoice.replay()} /><div className="school-door-light" aria-hidden="true" /></section>
-    <section className="student-login-panel" data-login-panel data-login-enter>
-      <div className="login-step-dots" aria-label={`Step ${step} of 3`}>{[1, 2, 3].map((item) => <i key={item} className={item <= step ? 'active' : ''} />)}<span>Step {step} of 3</span></div>
-      <AnimatePresence mode="wait">
-        {step === 1 && <motion.form key="school" initial={false} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} onSubmit={enterSchool} className="student-login-card">
-          <span className="student-kicker"><School size={16} /> Enter your school</span><h1>Which school are you from?</h1><p>Type the school code your teacher gave you.</p>
-          <label className="school-code-field"><span>School code</span><input required autoFocus value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} maxLength={16} placeholder="YOUR SCHOOL CODE" /></label>
-          {error && <div className="student-form-error" role="alert">{error}</div>}
-          <button className="student-primary-button" disabled={loading}>{loading ? 'Finding your school…' : <>ENTER MY SCHOOL <ArrowRight size={20} /></>}</button>
-          <Link className="student-text-link" href="/"><ArrowLeft size={16} /> Back to Talkora</Link>
-        </motion.form>}
-        {step === 2 && <motion.section key="roster" initial={false} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="student-login-card roster-card">
-          <span className="student-kicker"><Sparkles size={16} /> {schoolName}</span><h1>Find Yourself!</h1><p>Choose your class and tap your photo.</p>
-          <GradeFilter grades={facets.grades} value={grade} onChange={(nextGrade) => { setGrade(nextGrade); setClassFilter(''); setSearch(''); setPagination((current) => ({ ...current, page: 1 })) }} />
-          <div className="roster-tools"><ClassFilter classes={classes} value={classFilter} onChange={(value) => { setClassFilter(value); setPagination((current) => ({ ...current, page: 1 })) }} /><RosterSearch value={search} onChange={(value) => { setSearch(value); setPagination((current) => ({ ...current, page: 1 })) }} /></div>
-          <StudentRosterGrid students={students} selected={selected} onSelect={chooseStudent} classLabel={classFilter || (grade ? `Class ${grade}` : '')} loading={rosterLoading} page={pagination.page} pages={pagination.pages} onPage={(page) => setPagination((current) => ({ ...current, page }))} />
-          {!rosterLoading && !students.length && <div className="student-empty">No classmates found here. Try another class or spelling.</div>}
-          {error && <div className="student-form-error" role="alert">{error}</div>}
-          <button className="student-text-link button-link" type="button" onClick={() => setStep(1)}><ArrowLeft size={16} /> Change school</button>
-        </motion.section>}
-        {step === 3 && selected && <motion.form key="pin" initial={false} animate={error ? { opacity: 1, x: [0, -9, 9, -6, 6, 0] } : { opacity: 1, x: 0 }} exit={{ opacity: 0 }} onSubmit={signIn} className="student-login-card pin-card">
-          <div className="pin-student-photo"><span className="photo-tape" aria-hidden="true" /><Image src={accountAvatar(selected.avatar, students.findIndex((student) => student.id === selected.id))} alt="" fill sizes="100px" /></div>
-          <span className="student-kicker"><Sparkles size={16} /> Secret code</span><h1>Hi, {selected.fullName.split(' ')[0]}!</h1><p>Enter your secret Talkora code.</p>
-          <StudentPinInput value={studentCode} onChange={setStudentCode} invalid={Boolean(error)} success={success} />
-          {error && <div className="student-form-error" role="alert">{error}</div>}
-          <button className="student-primary-button" disabled={loading || success || !studentCode}>{success ? 'Opening your classroom…' : loading ? 'Checking…' : <>Start my adventure <ArrowRight size={20} /></>}</button>
-          <button className="student-text-link button-link" type="button" onClick={() => { setStep(2); setError('') }}><ArrowLeft size={16} /> Pick another student</button>
-        </motion.form>}
-      </AnimatePresence>
-    </section>
-  </main>
+        <section className="lab-login__panel" aria-labelledby="student-login-heading">
+          <div className="lab-login__student-badge"><BookOpenCheck size={21} /> STUDENT LOGIN</div>
+          <h2 id="student-login-heading">Hello, Superstar! <span aria-hidden="true">🌟</span></h2>
+          <p className="lab-login__intro">Enter your <strong>5-digit PIN</strong> to meet Miss Julie.</p>
+
+          <form onSubmit={submit} className="lab-login__form">
+            <label className="lab-login__pin-label" htmlFor="lab-student-pin">Your secret PIN</label>
+            <div className="lab-login__pin-digits" aria-hidden="true">
+              {Array.from({ length: 5 }, (_, i) => <div key={i} className={`lab-login__digit ${pin.length > i ? 'lab-login__digit--filled' : ''}`}>{pin.length > i ? '●' : '·'}</div>)}
+            </div>
+            <input
+              id="lab-student-pin"
+              ref={inputRef}
+              className="lab-login__real-input"
+              autoFocus
+              type="password"
+              autoComplete="off"
+              inputMode="numeric"
+              maxLength={5}
+              pattern="[0-9]{5}"
+              aria-label="Enter your five digit student PIN"
+              aria-describedby={error ? 'lab-pin-error' : 'lab-pin-help'}
+              value={pin}
+              onChange={event => { setPin(event.target.value.replace(/\D/g, '').slice(0, 5)); setError('') }}
+              disabled={busy}
+            />
+            <p id="lab-pin-help" className="lab-login__hint">Type your PIN or tap the numbers</p>
+            <div className="lab-login__keypad" aria-label="PIN number keypad">
+              {['1','2','3','4','5','6','7','8','9','clear','0','delete'].map(value => (
+                <button
+                  type="button" key={value} disabled={busy}
+                  className={`lab-login__key ${value === 'clear' || value === 'delete' ? 'lab-login__key--subtle' : ''}`}
+                  aria-label={value === 'delete' ? 'Delete last digit' : value === 'clear' ? 'Clear PIN' : `Digit ${value}`}
+                  onClick={() => value === 'delete' ? removeNumber() : value === 'clear' ? setPin('') : addNumber(value)}
+                >
+                  {value === 'delete' ? <Delete size={23}/> : value === 'clear' ? 'Clear' : value}
+                </button>
+              ))}
+            </div>
+            {error && <p id="lab-pin-error" role="alert" className="lab-login__error">{error}</p>}
+            <button className="lab-login__start" type="submit" disabled={busy || !complete}>
+              {busy ? 'Opening your classroom…' : 'Start Learning'} <ArrowRight size={22}/>
+            </button>
+          </form>
+          <p className="lab-login__privacy"><LockKeyhole size={16}/> Shared school computer? Your student login ends when you finish or the session expires.</p>
+          <Link href="/" className="lab-login__back"><ArrowLeft size={15}/> Back to homepage</Link>
+        </section>
+      </div>
+    </main>
+  )
 }

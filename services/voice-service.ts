@@ -4,6 +4,10 @@ import {
   getStoredToken,
 } from '@/lib/api-client'
 
+function markLabSpeechActivity() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('talkora:student-activity'))
+}
+
 /* =========================================================
    PLAYBACK
    ========================================================= */
@@ -323,6 +327,7 @@ async submitTranscript(
     mode: 'fast' | 'accurate' = 'fast',
   ): Promise<string> {
     if (!audio.size) throw new Error('The recording is empty. Please try again.')
+    markLabSpeechActivity()
 
     const form = new FormData()
     const extension = audio.type.includes('ogg')
@@ -373,6 +378,7 @@ async submitTranscript(
       }
     }
 
+    markLabSpeechActivity()
     const token =
       getStoredToken()
 
@@ -674,6 +680,7 @@ async submitTranscript(
     turnId = '',
     priority: VoicePriority = 'LESSON',
   ): Promise<VoicePlaybackResult> {
+    markLabSpeechActivity()
     const requestedAt =
       performance.now()
 

@@ -10,16 +10,16 @@
 export const talkoraAssets = {
   environments: {
     landing:
-      '/assets/talkora-world-approved.png',
+      '/assets/talkora-world-approved.webp',
 
     school:
-      '/classroom-scenes/classroom-board.png',
+      '/classroom-scenes/classroom-board.webp',
 
     classroom:
-      '/classroom-scenes/classroom-circle.png',
+      '/classroom-scenes/classroom-circle.webp',
 
     lesson:
-      '/classroom-scenes/classroom-lesson.png',
+      '/classroom-scenes/classroom-lesson.webp',
   },
 
   hero: {

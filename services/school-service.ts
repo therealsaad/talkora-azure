@@ -1,4 +1,4 @@
-import { apiClient, apiClientBlob } from '@/lib/api-client'
+import { apiClient } from '@/lib/api-client'
 
 export interface StudentListItem {
   id: string
@@ -27,7 +27,7 @@ export interface StudentListItem {
 export interface StudentDetail extends StudentListItem {
   createdAt: string
   updatedAt: string
-  homePractice?: { reflection: string; submittedAt: string; hasAudio: boolean } | null
+  homePractice?: { reflection: string; submittedAt: string } | null
   recentAttempts?: Array<{
     activityId: string
     answer: string
@@ -101,7 +101,7 @@ export const schoolService = {
     limit?: number
   }): Promise<{ students: StudentListItem[]; total: number; page: number; limit: number }> {
     const query = new URLSearchParams()
-    if (params?.grade) query.set('grade', String(params.grade))
+    if (params?.grade !== undefined) query.set('grade', String(params.grade))
     if (params?.className) query.set('className', params.className)
     if (params?.search) query.set('search', params.search)
     if (params?.page) query.set('page', String(params.page))
@@ -113,9 +113,6 @@ export const schoolService = {
 
   async getStudent(id: string): Promise<StudentDetail> {
     return apiClient<StudentDetail>(`/students/${id}`)
-  },
-  async getHomePracticeAudio(studentId: string): Promise<Blob> {
-    return apiClientBlob(`/students/${studentId}/home-practice/favourites/audio`)
   },
 
   async createStudent(data: {

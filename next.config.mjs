@@ -1,11 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
+  // Next.js handles local images via its optimizer in production on supported hosts.
+  // Retain image dimensions to prevent layout shifts, and use WebP where supplied.
+  images: { formats: ['image/avif', 'image/webp'] },
 }
-
 export default nextConfig

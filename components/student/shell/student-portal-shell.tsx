@@ -46,7 +46,7 @@ export function StudentPortalShell({ children }: { children: ReactNode }) {
 
   const student = session?.student
   const studentName = student?.fullName?.split(' ')[0] || 'Explorer'
-  const studentGrade = student?.className || (student?.grade ? `Class ${student.grade}` : 'Class 4')
+  const studentGrade = student?.className || (student?.grade === 0 ? 'Kindergarten' : student?.grade !== undefined ? `Class ${student.grade}` : 'Student')
   const avatarUrl = accountAvatar(student?.avatar) || learnerAvatar(student?.avatarType)
 
   return (

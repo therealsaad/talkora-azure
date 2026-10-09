@@ -52,6 +52,7 @@ export default function StudentLessonPage() {
   const [activities, setActivities] =
     useState<ActivityItem[]>([])
   const [completedActivityIds, setCompletedActivityIds] = useState<string[]>([])
+  const [loadedRouteId, setLoadedRouteId] = useState('')
 
   const [status, setStatus] =
     useState<LessonLoadState>('loading')
@@ -249,6 +250,24 @@ export default function StudentLessonPage() {
           )
         }
 
+        if (
+          String(resolvedLesson.levelId) !==
+          String(resolvedLevel.id)
+        ) {
+          throw new Error(
+            'This lesson is linked to a different learning world. Please contact your teacher.',
+          )
+        }
+
+        if (
+          String(resolvedLevel.classId) !==
+          String(matchingClass.id)
+        ) {
+          throw new Error(
+            'This learning world belongs to a different class. Please contact your teacher.',
+          )
+        }
+
         /* ================================================
            6. DOUBLE-CHECK GRADE OWNERSHIP
            ================================================ */
@@ -285,6 +304,19 @@ export default function StudentLessonPage() {
           )
         }
 
+        const foreignActivity =
+          lessonActivities.find(
+            (activity) =>
+              String(activity.lessonId) !==
+              String(resolvedLesson?.id),
+          )
+
+        if (foreignActivity) {
+          throw new Error(
+            'This lesson contains activity data from another lesson. Please contact your teacher.',
+          )
+        }
+
         /* ================================================
            8. ORDER ACTIVITY DATA
            ================================================ */
@@ -309,6 +341,7 @@ export default function StudentLessonPage() {
           ?.lessons?.find((item) => String(item.lessonId) === resolvedLesson.id)
         if (cancelled) return
         setCompletedActivityIds((saved?.completedActivityIds || []).map(String))
+        setLoadedRouteId(routeId)
 
         setStatus('ready')
       } catch (loadError) {
@@ -356,7 +389,10 @@ export default function StudentLessonPage() {
      LOADING
      ====================================================== */
 
-  if (status === 'loading') {
+  if (
+    status === 'loading' ||
+    (status === 'ready' && loadedRouteId !== routeId)
+  ) {
     return (
       <TalkoraLoader
         message="Miss Julie is preparing your lesson..."

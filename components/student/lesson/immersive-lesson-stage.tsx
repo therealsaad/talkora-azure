@@ -36,6 +36,7 @@ import {
 
 export interface ImmersiveLessonStageProps {
   activity: ActivityItem
+  unitNumber: number
   canonicalPrompt?: string
   index: number
   totalActivities: number
@@ -81,6 +82,7 @@ type DialogueTurn = {
 
 export function ImmersiveLessonStage({
   activity,
+  unitNumber,
   canonicalPrompt = '',
   index,
   totalActivities,
@@ -140,7 +142,10 @@ export function ImmersiveLessonStage({
     setBuilderFavourite('pizza')
   }, [activity.id])
 
-  const warmupItems = useMemo(() => getWarmupPrompts(activity), [activity])
+  const warmupItems = useMemo(
+    () => getWarmupPrompts(activity, unitNumber === 1),
+    [activity, unitNumber],
+  )
 
   const dialogueTurns = useMemo<DialogueTurn[]>(() => {
     const source = activity.content?.dialogueTurns
@@ -154,7 +159,7 @@ export function ImmersiveLessonStage({
       .filter((item) => typeof item.text === 'string' && item.text.trim())
   }, [activity.content, studentName])
 
-  const isWarmup = isWarmupActivity(activity)
+  const isWarmup = isWarmupActivity(activity, unitNumber === 1)
   const isMCQ = type === 'MCQ' || digitalType === 'MCQ'
   const isQuiz = ['MCQ', 'PICTURE_CHOICE', 'VISUAL_CHOICE', 'WORD_RECOGNITION'].includes(type) && stage !== 'REWARD'
   const isModelDialogue = type === 'LISTEN_MODEL' || digitalType === 'MODEL_CONVERSATION'
@@ -295,7 +300,7 @@ export function ImmersiveLessonStage({
     activity.prompt || (conversationTurn > 0 ? julieMessage : canonicalPrompt || julieMessage),
     studentName,
   )
-  const coachCue = lessonCoachCue(activity)
+  const coachCue = lessonCoachCue(activity, unitNumber === 1)
 
   return (
     <div className="tk-scene">
@@ -384,7 +389,7 @@ export function ImmersiveLessonStage({
               </div>
 
               <div className="tk-skill-pill">
-                {isWarmup ? '🎯 Likes & dislikes' : hasSkillLabel(type, stage)}
+                {isWarmup && warmupItems.length ? '🎯 Likes & dislikes' : hasSkillLabel(type, stage)}
               </div>
 
               {xpEarned > 0 ? <b className="tk-xp-pill">✦ {xpEarned} XP</b> : null}

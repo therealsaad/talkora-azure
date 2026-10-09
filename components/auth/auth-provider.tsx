@@ -33,6 +33,7 @@ interface AuthContextValue {
   loginSchool: (schoolCode: string, password: string) => Promise<AuthSession>
   loginTeacher: (schoolCode: string, email: string, password: string) => Promise<AuthSession>
   loginStudent: (schoolCode: string, studentId: string, studentCode: string) => Promise<AuthSession>
+  loginStudentByPin: (pin: string) => Promise<AuthSession>
   updateStudentAvatar: (avatar: string, avatarType: 'BOY' | 'GIRL') => Promise<AuthSession | null>
   logout: () => Promise<void>
 }
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const invalidate = () => clearSession()
     const syncAcrossTabs = (event: StorageEvent) => {
-      if (event.key === 'talkora_token') void restore()
+      if (event.key === 'talkora_token' && !window.sessionStorage.getItem('talkora_token')) void restore()
     }
 
     window.addEventListener(AUTH_INVALIDATED_EVENT, invalidate)
@@ -99,6 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('storage', syncAcrossTabs)
     }
   }, [clearSession, restore])
+
+  useEffect(() => {
+    if (session?.role !== 'STUDENT') return
+    const MAX_IDLE_MS = 20 * 60 * 1000
+    let lastActivity = Date.now()
+    const activity = () => { lastActivity = Date.now() }
+    const events = ['pointerdown', 'keydown', 'touchstart', 'talkora:student-activity'] as const
+    events.forEach(event => window.addEventListener(event, activity, { passive: true }))
+    const interval = window.setInterval(() => {
+      if (Date.now() - lastActivity >= MAX_IDLE_MS) {
+        voiceService.stop()
+        void authService.logout().finally(() => { clearSession(); window.location.replace('/login/student') })
+      }
+    }, 60_000)
+    return () => { window.clearInterval(interval); events.forEach(event => window.removeEventListener(event, activity)) }
+  }, [session?.role, clearSession])
 
   const value = useMemo<AuthContextValue>(() => ({
     status,
@@ -113,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginSchool: async (schoolCode, password) => acceptSession(await authService.loginSchool(schoolCode, password)),
     loginTeacher: async (schoolCode, email, password) => acceptSession(await authService.loginTeacher(schoolCode, email, password)),
     loginStudent: async (schoolCode, studentId, studentCode) => acceptSession(await authService.loginStudent(schoolCode, studentId, studentCode)),
+    loginStudentByPin: async (pin) => acceptSession(await authService.loginStudentByPin(pin)),
     updateStudentAvatar: async (avatar, avatarType) => {
       await authService.updateStudentAvatar(avatar, avatarType)
       return restore()

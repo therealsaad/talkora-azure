@@ -893,6 +893,10 @@ export const curriculumService = {
 
   async getLevel(id: string): Promise<LevelItem> {
     if (hasDemoData()) {
+      if (id !== DEMO_LEVEL.id) {
+        throw new Error(`Demo learning world not found: ${id}`)
+      }
+
       return DEMO_LEVEL
     }
 
@@ -901,6 +905,10 @@ export const curriculumService = {
 
   async getLessons(levelId: string): Promise<LessonItem[]> {
     if (hasDemoData()) {
+      if (levelId !== DEMO_LEVEL.id) {
+        throw new Error(`Demo lessons not found for learning world: ${levelId}`)
+      }
+
       return [DEMO_LESSON]
     }
 
@@ -910,6 +918,10 @@ export const curriculumService = {
 
   async getLesson(id: string): Promise<LessonItem> {
     if (hasDemoData()) {
+      if (id !== DEMO_LESSON.id) {
+        throw new Error(`Demo lesson not found: ${id}`)
+      }
+
       return DEMO_LESSON
     }
 
@@ -918,7 +930,9 @@ export const curriculumService = {
 
   async getActivities(lessonId: string): Promise<ActivityItem[]> {
     if (hasDemoData()) {
-      return DEMO_ACTIVITIES
+      return DEMO_ACTIVITIES.filter(
+        (activity) => activity.lessonId === lessonId,
+      )
     }
 
     const items = await apiClient<ActivityItem[]>(`/lessons/${lessonId}/activities`)
@@ -927,7 +941,12 @@ export const curriculumService = {
 
   async getActivity(id: string): Promise<ActivityItem> {
     if (hasDemoData()) {
-      return DEMO_ACTIVITIES[0]
+      const activity = DEMO_ACTIVITIES.find((item) => item.id === id)
+      if (!activity) {
+        throw new Error(`Demo activity not found: ${id}`)
+      }
+
+      return activity
     }
 
     return withId(await apiClient<ActivityItem>(`/activities/${id}`))

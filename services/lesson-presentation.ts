@@ -63,11 +63,16 @@ function emojiFor(label: string, index: number) {
   )
 }
 
-export function getWarmupPrompts(activity?: ActivityItem): WarmupPrompt[] {
+export function getWarmupPrompts(
+  activity?: ActivityItem,
+  allowUnitOneFallback = false,
+): WarmupPrompt[] {
   const source = activity?.content?.visualPrompts
 
   if (!Array.isArray(source) || source.length === 0) {
-    return WARMUP_FALLBACK
+    return allowUnitOneFallback
+      ? WARMUP_FALLBACK
+      : []
   }
 
   return source
@@ -159,10 +164,21 @@ export function resolveActivityTeacherLine(
   return line.replace(/\bAarav\b/gi, studentName).trim()
 }
 
-export function lessonCoachCue(activity?: ActivityItem) {
+export function lessonCoachCue(
+  activity?: ActivityItem,
+  allowUnitOneFallback = false,
+) {
   const stage = String(activity?.stage || '').toUpperCase()
 
   if (stage === 'WARM_UP') {
+    if (!isWarmupActivity(activity, allowUnitOneFallback)) {
+      return {
+        icon: '💬',
+        label: 'TURN AND TALK',
+        tip: 'Take turns asking and answering. Listen carefully to your partner.',
+      }
+    }
+
     return {
       icon: '⚡',
       label: 'QUICK PICK',
@@ -233,9 +249,21 @@ export function lessonCoachCue(activity?: ActivityItem) {
   }
 }
 
-export function isWarmupActivity(activity?: ActivityItem) {
+export function isWarmupActivity(
+  activity?: ActivityItem,
+  allowUnitOneFallback = false,
+) {
   const stage = String(activity?.stage || '').toUpperCase()
   const digitalType = String(activity?.metadata?.digitalType || '').toUpperCase()
+  const hasVisualPrompts =
+    Array.isArray(activity?.content?.visualPrompts) &&
+    activity.content.visualPrompts.length > 0
 
-  return stage === 'WARM_UP' || digitalType === 'VISUAL_WARM_UP'
+  return (
+    digitalType === 'VISUAL_WARM_UP' ||
+    (
+      stage === 'WARM_UP' &&
+      (hasVisualPrompts || allowUnitOneFallback)
+    )
+  )
 }

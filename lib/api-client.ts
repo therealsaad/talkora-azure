@@ -27,18 +27,31 @@ const TOKEN_KEY = 'talkora_token'
 const USER_KEY = 'talkora_user'
 export const AUTH_INVALIDATED_EVENT = 'talkora:auth-invalidated'
 
+// Students on shared lab computers use tab-scoped credentials. Staff sessions remain persistent.
 export function getStoredToken(): string | null {
-  return typeof window === 'undefined' ? null : window.localStorage.getItem(TOKEN_KEY)
+  if (typeof window === 'undefined') return null
+  const persisted = window.localStorage.getItem(USER_KEY)
+  if (persisted) {
+    try {
+      if (JSON.parse(persisted)?.role === 'STUDENT') {
+        window.localStorage.removeItem(TOKEN_KEY)
+        window.localStorage.removeItem(USER_KEY)
+      }
+    } catch { /* invalid cached user cannot authenticate on its own */ }
+  }
+  return window.sessionStorage.getItem(TOKEN_KEY) || window.localStorage.getItem(TOKEN_KEY)
 }
-
-export function setStoredToken(token: string): void {
-  if (typeof window !== 'undefined') window.localStorage.setItem(TOKEN_KEY, token)
+export function setStoredToken(token: string, labSession = false): void {
+  if (typeof window === 'undefined') return
+  clearStoredToken()
+  const storage = labSession ? window.sessionStorage : window.localStorage
+  storage.setItem(TOKEN_KEY, token)
 }
-
 export function clearStoredToken(): void {
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(TOKEN_KEY)
-    window.localStorage.removeItem(USER_KEY)
+  if (typeof window === 'undefined') return
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    storage.removeItem(TOKEN_KEY)
+    storage.removeItem(USER_KEY)
   }
 }
 
@@ -49,12 +62,12 @@ export function handleUnauthorizedResponse(status: number): void {
 }
 
 export function setStoredUser<T>(user: T): void {
-  if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(user))
+  if (typeof window !== 'undefined') (window.sessionStorage.getItem(TOKEN_KEY) ? window.sessionStorage : window.localStorage).setItem(USER_KEY, JSON.stringify(user))
 }
 
 export function getStoredUser<T = any>(): T | null {
   if (typeof window === 'undefined') return null
-  const stored = window.localStorage.getItem(USER_KEY)
+  const stored = window.sessionStorage.getItem(USER_KEY) || window.localStorage.getItem(USER_KEY)
   if (!stored) return null
   try { return JSON.parse(stored) as T } catch { return null }
 }
@@ -113,30 +126,23 @@ export async function apiClient<T = any>(
   return data.data as T
 }
 
-export async function apiClientBlob(endpoint: string): Promise<Blob> {
+/** Binary-file requests (PDF reports, recordings). Never JSON-decode a Blob. */
+export async function apiClientBlob(endpoint: string, options: RequestInit = {}): Promise<Blob> {
   const token = getStoredToken()
-  const res = await fetch(getApiUrl(endpoint), {
-    cache: 'no-store',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  const headers = new Headers(options.headers)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  if (options.body && !isFormData && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  const response = await fetch(getApiUrl(endpoint), {
+    ...options,
+    headers,
+    cache: options.cache ?? 'no-store',
   })
-
-  if (!res.ok) {
-    const contentType = res.headers.get('content-type') || ''
-    let message = `Request failed with status ${res.status}`
-    let code = 'REQUEST_FAILED'
-    let details: unknown
-    if (contentType.includes('application/json')) {
-      const data = await res.json().catch(() => null) as ApiResponse<never> | null
-      message = data?.error?.message || message
-      code = data?.error?.code || code
-      details = data?.error?.details
-    } else {
-      const text = await res.text().catch(() => '')
-      message = text.replace(/\s+/g, ' ').trim().slice(0, 240) || message
-    }
-    handleUnauthorizedResponse(res.status)
-    throw new ApiError(message, code, res.status, details)
+  if (!response.ok) {
+    handleUnauthorizedResponse(response.status)
+    const type = response.headers.get('content-type') || ''
+    const error = type.includes('application/json') ? await response.json().catch(() => null) : null
+    throw new ApiError(error?.error?.message || `File request failed (${response.status})`, error?.error?.code || 'FILE_REQUEST_FAILED', response.status)
   }
-
-  return res.blob()
+  return response.blob()
 }

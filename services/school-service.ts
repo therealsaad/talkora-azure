@@ -1,5 +1,4 @@
-import { apiClient } from '@/lib/api-client'
-
+import { apiClient, apiClientBlob } from '@/lib/api-client'
 export interface StudentListItem {
   id: string
   teacherId?: string
@@ -27,7 +26,11 @@ export interface StudentListItem {
 export interface StudentDetail extends StudentListItem {
   createdAt: string
   updatedAt: string
-  homePractice?: { reflection: string; submittedAt: string } | null
+homePractice?: {
+  reflection: string
+  submittedAt: string
+  hasAudio?: boolean
+} | null
   recentAttempts?: Array<{
     activityId: string
     answer: string
@@ -113,7 +116,13 @@ export const schoolService = {
 
   async getStudent(id: string): Promise<StudentDetail> {
     return apiClient<StudentDetail>(`/students/${id}`)
+    
   },
+  async getHomePracticeAudio(id: string): Promise<Blob> {
+  return apiClientBlob(
+    `/students/${encodeURIComponent(id)}/home-practice/audio`
+  )
+},
 
   async createStudent(data: {
     fullName: string
